@@ -1,0 +1,15 @@
+Deliverables enumerated
+
+Easy
+Conversion from Console Input to Textfile Input
+Output processed source code input into processed source code into an external txt file
+
+Tedious
+Outputs the tokens found in the program to an external file
+Error Handling for interactions between string and any other data type (integer and double)
+
+Hard
+Conditional handling
+Explicit Data Type initialization
+Output handling
+Conversion of the lexer and parser to accept specific operators unrelated to arithmetic
