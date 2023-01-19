@@ -55,7 +55,9 @@ enum class Token
 {
     Id, Number, Sin, Cos, Tan, Asin, Acos, Atan, Log, Exp,
     Log10, Exp10, Sqrt, Int, Assign='=', Plus='+', Minus='-',
-    Mul='*', Div='/', Mod='%', Pow='^', Lp='(', Rp=')', Eofsym=-1
+    Mul='*', Div='/', Mod='%', Pow='^', Lp='(', Rp=')', Eofsym=-1,
+
+    Output
 };
 
 class Lexer
@@ -162,6 +164,7 @@ Token Lexer::get_token()
         if (token_buffer == "exp10") return Token::Exp10;
         if (token_buffer == "sqrt") return Token::Sqrt;
         if (token_buffer == "int") return Token::Int;
+        if (token_buffer == "output") return Token::Output;
 
         // Whatever is not a function name must be an identifier.
         return Token::Id;
@@ -305,30 +308,39 @@ Parser::Parser()
     symbol_table["e"] = exp(1.0);
 }
 
+//creates a Lexer, calls assign_expr() to start the parsing process, and then deletes the Lexer when it's done.
 double Parser::operator()(const std::string& s)
 {
+    // Create an input stream from the string.
     std::istringstream ist{s};
     p_lexer = new Lexer{ist};
+    // Our entry point into the parsing process.
     double result = assign_expr();
     delete p_lexer;
+
     return result;
 }
 
 double Parser::assign_expr()
 {
+    // We must save the current token at this point, because if it is followed by an assignment
+    // operator, we have to check whether it is an identifier.
     Token t = p_lexer->get_current_token();
     std::string text = p_lexer->get_token_text();
 
     double result = add_expr();
 
+    // Process assign_expr_suffix.
     if (p_lexer->get_current_token() == Token::Assign)
     {
+        // The target of our assignment must be an Id.
         if (t != Token::Id)
-        throw Syntax_error{"target of assignment must be an identifier"};
+            throw Syntax_error{"target of assignment must be an identifier"};
 
         if (text == "pi" || text == "e")
-        throw Syntax_error{"attempt to modify the constant " + text};
+            throw Syntax_error{"attempt to modify the constant " + text};
 
+        // Move past the Assign token.
         p_lexer->advance();
 
         return symbol_table[text] = add_expr();
@@ -341,6 +353,7 @@ double Parser::add_expr()
 {
     double result = mul_expr();
 
+    // Process add_expr_tail.
     for (;;)
     {
         switch (p_lexer->get_current_token())
@@ -349,9 +362,11 @@ double Parser::add_expr()
                 p_lexer->advance();
                 result += mul_expr();
                 break;
+
             case Token::Minus:
                 p_lexer->advance();
                 result -= mul_expr();
+
             default:
                 return result;
         }
@@ -363,6 +378,7 @@ double Parser::mul_expr()
     double result = pow_expr();
     double x;
 
+    // Process mul_expr_tail.
     for (;;)
     {
         switch (p_lexer->get_current_token())
@@ -371,6 +387,7 @@ double Parser::mul_expr()
                 p_lexer->advance();
                 result *= pow_expr();
                 break;
+
             case Token::Div:
                 p_lexer->advance();
                 x = pow_expr();
@@ -378,6 +395,7 @@ double Parser::mul_expr()
                     throw Runtime_error{"attempt to divide by zero"};
                 result /= x;
                 break;
+
             case Token::Mod:
                 p_lexer->advance();
                 x = pow_expr();
@@ -385,6 +403,7 @@ double Parser::mul_expr()
                     throw Runtime_error{"attempt to divide by zero"};
                 result = fmod(result, x);
                 break;
+
             default:
                 return result;
         }
@@ -395,6 +414,7 @@ double Parser::pow_expr()
 {
     double result = unary_expr();
 
+    // Process pow_expr_suffix.
     if (p_lexer->get_current_token() == Token::Pow)
     {
         p_lexer->advance();
@@ -431,56 +451,71 @@ double Parser::primary()
         case Token::Id:
             p_lexer->advance();
             return symbol_table[text];
+
         case Token::Number:
             p_lexer->advance();
             return to_number(text);
+
         case Token::Lp:
             p_lexer->advance();
             arg = add_expr();
             if (p_lexer->get_current_token() != Token::Rp)
-            throw Syntax_error{"missing ) after subexpression"};
+                throw Syntax_error{"missing ) after subexpression"};
             p_lexer->advance();
             return arg;
+
         case Token::Sin:
             return sin(get_argument());
+
         case Token::Cos:
             return cos(get_argument());
+
         case Token::Tan:
             arg = get_argument();
             if (cos(arg) == 0)
-            throw Runtime_error{"invalid argument to tan: " + to_string(arg)};
+                throw Runtime_error{"invalid argument to tan: " + to_string(arg)};
             return tan(arg);
+
         case Token::Asin:
             return asin(get_argument());
+
         case Token::Acos:
             return acos(get_argument());
+
         case Token::Atan:
             return atan(get_argument());
+
         case Token::Log:
             arg = get_argument();
             if (arg < 1)
-            throw Runtime_error{"invalid argument to log: " + to_string(arg)};
+                throw Runtime_error{"invalid argument to log: " + to_string(arg)};
             return log(arg);
+
         case Token::Exp:
             return exp(get_argument());
+
         case Token::Log10:
             arg = get_argument();
             if (arg < 1)
-            throw Runtime_error{"invalid argument to log10: " + to_string(arg)};
+                throw Runtime_error{"invalid argument to log10: " + to_string(arg)};
             return log10(arg);
+
         case Token::Exp10:
             return exp10(get_argument());
+
         case Token::Sqrt:
             arg = get_argument();
             if (arg < 0)
-            throw Runtime_error{"attempt to take square root of negative number"};
+                throw Runtime_error{"attempt to take square root of negative number"};
             return sqrt(arg);
+
         case Token::Int:
             arg = get_argument();
             if (arg < 0)
-            return ceil(arg);
+                return ceil(arg);
             else
-            return floor(arg);
+                return floor(arg);
+
         default:
             throw Syntax_error{"invalid primary expression"};
     }
@@ -502,16 +537,22 @@ void Parser::check_domain(double x, double y)
 double Parser::get_argument()
 {
     p_lexer->advance();
+
     if (p_lexer->get_current_token() != Token::Lp)
         throw Syntax_error{"missing ( after function name"};
+
     p_lexer->advance();
+
     double arg = add_expr();
+
     if (p_lexer->get_current_token() != Token::Rp)
         throw Syntax_error{"missing ) after function argument"};
+
     p_lexer->advance();
+
     return arg;
 }
-
+//Driver
 int main()
 {
     Parser parser;
