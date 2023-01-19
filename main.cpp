@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <fstream>
 
 //converts a string to a number
 double to_number(const std::string& s)
@@ -559,11 +560,31 @@ int main()
 
     std::cout.precision(12);
 
-    while (std::cin)
+	std::ifstream iFile;
+	
+	int prognum;
+	std::cout <<"Choose a file \n"<<std::endl
+	<<"[1] PROG1.HL"<<std::endl
+	<<"[2] PROG2.HL"<<std::endl
+	<<"[3] PROG3.HL"<<std::endl;
+	std::cin>>prognum;
+	
+	if(prognum == 1){
+		iFile.open("PROG1.HL");
+	}else if(prognum == 2){
+		iFile.open("PROG2.HL");
+	}else if(prognum == 3){
+		iFile.open("PROG3.HL");
+	}else{
+		std::cout<<"Please pick a number between 1-3"<<std::endl;
+	}
+	
+
+    while (iFile.good())
     {
         std::string s;
-        std::getline(std::cin, s);
-        if (!std::cin || s == "quit") break;
+        std::getline(iFile, s);
+        if (!iFile || s == "quit") break;
         try
         {
             std::cout << parser(s) << '\n';
@@ -581,4 +602,5 @@ int main()
             std::cerr << "Runtime error: " << e << '\n';
         }
     }
+    iFile.close();
 }
